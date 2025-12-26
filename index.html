@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALORANT AIM TRAINER</title>
+    <style>
+        :root {
+            --valo-red: #ff4655;
+            --valo-dark: #0f1923;
+            --valo-white: #ece8e1;
+        }
+
+        body { margin: 0; overflow: hidden; background-color: var(--valo-dark); font-family: 'Segoe UI', Roboto, sans-serif; user-select: none; color: var(--valo-white); }
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 5px; height: 5px; background-color: #00ff00;
+            transform: translate(-50%, -50%); border-radius: 50%; z-index: 10;
+        }
+
+        #hud {
+            position: absolute; top: 30px; width: 100%;
+            display: flex; justify-content: center; gap: 40px;
+            z-index: 5; text-transform: uppercase; letter-spacing: 2px;
+        }
+        .stat-group { display: flex; flex-direction: column; align-items: center; }
+        .stat-label { font-size: 10px; color: rgba(236, 232, 225, 0.5); margin-bottom: 5px; }
+        .stat-value { font-size: 28px; font-weight: 800; border-bottom: 3px solid var(--valo-red); padding: 0 10px; min-width: 60px; text-align: center; }
+
+        #countdown-overlay {
+            display: none; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 140px; font-weight: 900; color: var(--valo-white);
+            z-index: 15; text-shadow: 0 0 30px rgba(255, 70, 85, 0.6);
+            font-style: italic; pointer-events: none;
+        }
+
+        #menu-overlay {
+            display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 25, 35, 0.9); z-index: 20; justify-content: center; align-items: center;
+        }
+        .panel { 
+            background: var(--valo-dark); border: 1px solid rgba(255, 70, 85, 0.3); 
+            padding: 40px; width: 450px; position: relative;
+        }
+        .panel::before {
+            content: ""; position: absolute; top: -2px; left: -2px; width: 20px; height: 20px; border-left: 2px solid var(--valo-red); border-top: 2px solid var(--valo-red);
+        }
+        
+        h1 { font-size: 28px; font-weight: 900; margin-bottom: 30px; letter-spacing: 5px; text-align: left; }
+        h1 span { color: var(--valo-red); }
+
+        .control-group { margin-bottom: 25px; }
+        label { display: block; font-size: 11px; font-weight: bold; margin-bottom: 10px; opacity: 0.7; letter-spacing: 1px; }
+        
+        input[type=range] { width: 100%; height: 4px; background: #333; accent-color: var(--valo-red); cursor: pointer; }
+
+        .selector-row { display: flex; gap: 5px; }
+        .select-btn { 
+            flex: 1; padding: 10px; border: 1px solid rgba(255,255,255,0.1); background: transparent; 
+            color: var(--valo-white); cursor: pointer; font-weight: 800; transition: 0.2s; font-size: 12px;
+        }
+        .select-btn:hover { background: rgba(255,255,255,0.05); }
+        .select-btn.active { background: var(--valo-red); border-color: var(--valo-red); color: white; }
+
+        button#start-btn { 
+            background: transparent; color: var(--valo-white); border: 1px solid var(--valo-white); 
+            padding: 18px; width: 100%; cursor: pointer; font-weight: 900; 
+            text-transform: uppercase; margin-top: 10px; transition: 0.3s; letter-spacing: 2px;
+        }
+        button#start-btn:hover { background: var(--valo-white); color: var(--valo-dark); }
+
+        #results-screen { 
+            display: none; text-align: left; margin-bottom: 25px; border-left: 4px solid var(--valo-red); padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crosshair"></div>
+    <div id="countdown-overlay"></div>
+    
+    <div id="hud">
+        <div class="stat-group"><span class="stat-label">Points</span><span class="stat-value" id="score">0</span></div>
+        <div class="stat-group"><span class="stat-label">Seconds</span><span class="stat-value" id="timer">60</span></div>
+        <div class="stat-group"><span class="stat-label">Accuracy</span><span class="stat-value" id="accuracy">100</span></div>
+    </div>
+
+    <div id="menu-overlay">
+        <div class="panel">
+            <h1>AIM // <span>TRAINING</span></h1>
+            
+            <div id="results-screen">
+                <div style="font-size: 11px; opacity: 0.5;">LAST SESSION RESULTS:</div>
+                <div id="final-stats" style="font-size: 18px; font-weight: 800; margin-top: 5px;"></div>
+            </div>
+
+            <div class="control-group">
+                <label>SENSITIVITY <span id="sens-val" style="float:right; color:var(--valo-red)">0.36</span></label>
+                <input type="range" id="sens-slider" min="0.1" max="2.0" step="0.01" value="0.36">
+            </div>
+
+            <div class="control-group">
+                <label>PRACTICE LEVEL</label>
+                <div class="selector-row" id="diff-row">
+                    <button class="select-btn active" data-level="easy">EASY</button>
+                    <button class="select-btn" data-level="medium">MEDIUM</button>
+                    <button class="select-btn" data-level="hard">HARD</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>SESSION DURATION</label>
+                <div class="selector-row" id="time-row">
+                    <button class="select-btn" data-time="10">10S</button>
+                    <button class="select-btn" data-time="30">30S</button>
+                    <button class="select-btn active" data-time="60">60S</button>
+                </div>
+            </div>
+
+            <button id="start-btn">Enter Range</button>
+        </div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const DIFF_SETTINGS = {
+            easy: { spawn: 1500, life: 3000, pts: 100 },
+            medium: { spawn: 800, life: 1200, pts: 200 },
+            hard: { spawn: 500, life: 750, pts: 500 }
+        };
+
+        let selectedDiff = 'easy', 
+            selectedTime = 60, 
+            currentSens = 0.36, 
+            gameActive = false;
+            
+        let score = 0, hits = 0, clicks = 0, timeLeft = 60;
+        let timerInterval, spawnInterval;
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e14);
+        const camera = new THREE.PerspectiveCamera(71, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const addGridRoom = () => {
+            const floor = new THREE.GridHelper(100, 50, 0xff4655, 0x1f2326);
+            floor.position.y = -2;
+            scene.add(floor);
+            const wallGrid = new THREE.GridHelper(100, 50, 0xff4655, 0x1f2326);
+            wallGrid.rotation.x = Math.PI / 2;
+            wallGrid.position.z = -10.1;
+            scene.add(wallGrid);
+        };
+        addGridRoom();
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+
+        // --- AUDIO ---
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        const vandalSound = new THREE.Audio(listener), 
+              hitSound = new THREE.Audio(listener), 
+              buttonSound = new THREE.Audio(listener),
+              countdownSound = new THREE.Audio(listener);
+
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load('button1.mp3', buf => vandalSound.setBuffer(buf));
+        audioLoader.load('https://actions.google.com/sounds/v1/water/clink_water_glass.ogg', buf => hitSound.setBuffer(buf));
+        audioLoader.load('button2.mp3', buf => buttonSound.setBuffer(buf));
+        audioLoader.load('button3.mp3', buf => countdownSound.setBuffer(buf));
+
+        const playBtnSound = () => { if (buttonSound.buffer) { if (buttonSound.isPlaying) buttonSound.stop(); buttonSound.play(); } };
+        const playCountSound = () => { if (countdownSound.buffer) { if (countdownSound.isPlaying) countdownSound.stop(); countdownSound.play(); } };
+
+        // --- TARGETS ---
+        const targets = [];
+        const raycaster = new THREE.Raycaster();
+
+        function spawnTarget() {
+            if (!gameActive) return;
+            const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+            const group = new THREE.Group();
+            group.add(mesh);
+            group.position.set((Math.random()-0.5)*8, 0.5+Math.random()*3, -10);
+            scene.add(group);
+            targets.push(group);
+            setTimeout(() => { if (targets.includes(group)) { scene.remove(group); targets.splice(targets.indexOf(group), 1); } }, DIFF_SETTINGS[selectedDiff].life);
+        }
+
+        // --- MENU UI LOGIC ---
+        const startBtn = document.getElementById('start-btn'),
+              sensSlider = document.getElementById('sens-slider'),
+              countdownEl = document.getElementById('countdown-overlay');
+
+        // Sens Slider
+        sensSlider.oninput = (e) => { currentSens = e.target.value; document.getElementById('sens-val').innerText = currentSens; };
+
+        // Difficulty Buttons
+        document.querySelectorAll('#diff-row .select-btn').forEach(btn => {
+            btn.onclick = () => {
+                playBtnSound();
+                document.querySelectorAll('#diff-row .select-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedDiff = btn.dataset.level;
+            };
+        });
+
+        // Time Buttons
+        document.querySelectorAll('#time-row .select-btn').forEach(btn => {
+            btn.onclick = () => {
+                playBtnSound();
+                document.querySelectorAll('#time-row .select-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedTime = parseInt(btn.dataset.time);
+                document.getElementById('timer').innerText = selectedTime; // Update preview di HUD
+            };
+        });
+
+        startBtn.onclick = () => { playBtnSound(); document.body.requestPointerLock(); };
+
+        document.addEventListener('pointerlockchange', () => {
+            const isLocked = document.pointerLockElement === document.body;
+            document.getElementById('menu-overlay').style.display = isLocked ? 'none' : 'flex';
+            if(isLocked) runCountdown(); else stopGame();
+        });
+
+        function runCountdown() {
+            let count = 3;
+            countdownEl.style.display = 'block';
+            countdownEl.innerText = count;
+            playCountSound();
+            const countInterval = setInterval(() => {
+                count--;
+                if(count > 0) { countdownEl.innerText = count; playCountSound(); }
+                else if(count === 0) { countdownEl.innerText = "GO!"; playCountSound(); }
+                else { clearInterval(countInterval); countdownEl.style.display = 'none'; startGame(); }
+            }, 1000);
+        }
+
+        function startGame() {
+            gameActive = true;
+            score = 0; hits = 0; clicks = 0; 
+            timeLeft = selectedTime; // Gunakan waktu yang dipilih
+            updateHUD();
+            spawnInterval = setInterval(spawnTarget, DIFF_SETTINGS[selectedDiff].spawn);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateHUD();
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function stopGame() {
+            gameActive = false;
+            clearInterval(spawnInterval);
+            clearInterval(timerInterval);
+            targets.forEach(t => scene.remove(t));
+            targets.length = 0;
+            countdownEl.style.display = 'none';
+        }
+
+        function updateHUD() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('timer').innerText = timeLeft;
+            document.getElementById('accuracy').innerText = clicks > 0 ? ((hits/clicks)*100).toFixed(1) : 100;
+        }
+
+        function endGame() {
+            document.exitPointerLock();
+            const acc = clicks > 0 ? ((hits/clicks)*100).toFixed(1) : 0;
+            document.getElementById('final-stats').innerText = `${score} PTS // ${acc}% ACC // ${selectedTime}S`;
+            document.getElementById('results-screen').style.display = 'block';
+        }
+
+        // --- SHOOTING ---
+        window.onmousedown = () => {
+            if(!gameActive) return;
+            clicks++;
+            if(vandalSound.buffer) { if(vandalSound.isPlaying) vandalSound.stop(); vandalSound.play(); }
+            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+            const intersects = raycaster.intersectObjects(targets, true);
+            if(intersects.length > 0) {
+                hits++;
+                score += DIFF_SETTINGS[selectedDiff].pts;
+                let hitT = intersects[0].object.parent;
+                intersects[0].object.material.color.set(0xffffff);
+                if(hitSound.buffer) { if(hitSound.isPlaying) hitSound.stop(); hitSound.play(); }
+                setTimeout(() => { scene.remove(hitT); const idx = targets.indexOf(hitT); if(idx > -1) targets.splice(idx, 1); }, 40);
+            }
+            updateHUD();
+        };
+
+        // --- CAMERA ---
+        let pitch = 0, yaw = 0;
+        document.addEventListener('mousemove', (e) => {
+            if(document.pointerLockElement !== document.body) return;
+            const sens = 0.0007;
+            yaw -= e.movementX * currentSens * sens;
+            pitch -= e.movementY * currentSens * sens;
+            pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+            camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+        });
+
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        animate();
+
+        window.onresize = () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+    </script>
+</body>
+</html>
